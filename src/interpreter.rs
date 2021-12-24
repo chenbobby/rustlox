@@ -38,8 +38,8 @@ impl Interpreter {
 
     fn run(&mut self, source_code: &mut str) {
         let mut scanner = Scanner::new();
-        if let Err((line_number, message)) = scanner.scan(source_code) {
-            self.error(line_number, &message)
+        if let Err(scan_error) = scanner.scan(source_code) {
+            self.error(scan_error.line_number, &scan_error.message)
         }
         let tokens = &scanner.tokens;
         println!("Token:\n{:#?}", tokens);

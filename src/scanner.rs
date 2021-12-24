@@ -1,6 +1,6 @@
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TokenType {
-    // Single-character tokens
+    // Tokens with only 1 character
     LeftParen,
     RightParen,
     LeftBrace,
@@ -13,7 +13,7 @@ pub enum TokenType {
     Star,
     Slash,
 
-    // Multi-character tokens
+    // Tokens with at least 1 character
     Bang,
     BangEqual,
     Equal,
@@ -71,32 +71,32 @@ impl TokenType {
     }
 }
 
-#[derive(Debug)]
-pub struct Token {
+#[derive(Debug, Clone, PartialEq)]
+pub struct Token<'a> {
     pub token_type: TokenType,
-    pub lexeme: String,
+    pub lexeme: &'a str,
     pub line_number: i32,
 }
 
-impl Token {
-    fn new(token_type: TokenType, lexeme: &str, line_number: i32) -> Token {
+impl<'a> Token<'a> {
+    fn new(token_type: TokenType, lexeme: &'a str, line_number: i32) -> Token {
         Token {
             token_type,
-            lexeme: lexeme.to_string(),
+            lexeme: lexeme,
             line_number,
         }
     }
 }
 
-pub struct Scanner {
+pub struct Scanner<'a> {
     cursor: usize,
     lexeme_start: usize,
     line_number: i32,
-    pub tokens: Vec<Token>,
+    pub tokens: Vec<Token<'a>>,
 }
 
-impl Scanner {
-    pub fn new() -> Scanner {
+impl<'a> Scanner<'a> {
+    pub fn new() -> Scanner<'a> {
         Scanner {
             cursor: 0,
             lexeme_start: 0,
@@ -107,7 +107,7 @@ impl Scanner {
 
     // [TODO]: Improve the API of Scanner.scan so that it returns a Vec<Token> without re-allocating
     // the entire backing array.
-    pub fn scan(&mut self, source_code: &mut str) -> Result<(), (i32, String)> {
+    pub fn scan(&mut self, source_code: &'a str) -> Result<Vec<Token<'a>>, Error> {
         self.tokens = Vec::new();
 
         let characters: Vec<char> = source_code.chars().collect();
@@ -174,14 +174,13 @@ impl Scanner {
                     self.cursor += 1;
 
                     if characters[self.cursor] == '"' {
-                        let slice = &characters[self.lexeme_start + 1..self.cursor];
-                        let string_literal = &String::from_iter(slice);
+                        let string_literal = &source_code[self.lexeme_start + 1..self.cursor];
                         self.add_token(TokenType::String, string_literal);
                         break 'string_literal;
                     }
 
                     if self.cursor >= characters.len() || characters[self.cursor] == '\n' {
-                        return Err((self.line_number, "Unterminated string".to_string()));
+                        return Err(Error::new(self.line_number, "Unterminated string"));
                     }
                 },
                 ' ' | '\r' | '\t' => {
@@ -210,8 +209,7 @@ impl Scanner {
                             }
 
                             self.cursor -= 1;
-                            let slice = &characters[self.lexeme_start..self.cursor + 1];
-                            let number_literal = &String::from_iter(slice);
+                            let number_literal = &source_code[self.lexeme_start..self.cursor + 1];
                             self.add_token(TokenType::Number, number_literal);
                             break 'number_literal;
                         }
@@ -228,8 +226,7 @@ impl Scanner {
                                 continue 'identifier_literal;
                             }
 
-                            let slice = &characters[self.lexeme_start..self.cursor];
-                            let identifier_literal = &String::from_iter(slice);
+                            let identifier_literal = &source_code[self.lexeme_start..self.cursor];
                             let token_type = TokenType::from_str(identifier_literal);
                             self.add_token(token_type, identifier_literal);
                             break 'identifier_literal;
@@ -237,21 +234,75 @@ impl Scanner {
                         continue 'scan;
                     }
 
-                    return Err((
+                    return Err(Error::new(
                         self.line_number,
-                        format!("Unexpected character: {}", characters[self.cursor]),
+                        &format!("Unexpected character: {}", characters[self.cursor]),
                     ));
                 }
             }
         }
 
-        Ok(())
+        Ok(self.tokens[..].to_vec())
     }
 
-    pub fn add_token(&mut self, token_type: TokenType, lexeme: &str) {
+    pub fn add_token(&mut self, token_type: TokenType, lexeme: &'a str) {
         let token = Token::new(token_type, lexeme, self.line_number);
         self.tokens.push(token);
         self.cursor += 1;
         self.lexeme_start = self.cursor;
+    }
+}
+
+#[derive(Debug)]
+pub struct Error {
+    pub line_number: i32,
+    pub message: String,
+}
+
+impl Error {
+    fn new(line_number: i32, message: &str) -> Error {
+        Error {
+            line_number: line_number,
+            message: message.to_string(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::scanner::{Scanner, Token, TokenType};
+
+    #[test]
+    fn single_character_lexemes_are_scanned_successfully() {
+        struct TestCase<'a> {
+            input: &'a str,
+            expected_output: Vec<Token<'a>>,
+        }
+
+        let test_cases = vec![
+            TestCase {
+                input: "(",
+                expected_output: vec![Token {
+                    token_type: TokenType::LeftParen,
+                    lexeme: "(",
+                    line_number: 1,
+                }],
+            },
+            TestCase {
+                input: ")",
+                expected_output: vec![Token {
+                    token_type: TokenType::RightParen,
+                    lexeme: ")",
+                    line_number: 1,
+                }],
+            },
+        ];
+
+        for test_case in test_cases {
+            let mut scanner = Scanner::new();
+            let output = scanner.scan(test_case.input).unwrap();
+
+            assert_eq!(output, test_case.expected_output);
+        }
     }
 }

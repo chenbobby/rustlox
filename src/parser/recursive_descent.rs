@@ -55,7 +55,7 @@ pub enum Node {
 
 pub struct RecursiveDescentParser<'a> {
     cursor: usize,
-    tokens: &'a [Token],
+    tokens: &'a [Token<'a>],
     tokens_len: usize,
 }
 
