@@ -1,4 +1,5 @@
-use std::io::Write; // Brings std::io::Stdout.flush into scope.
+use crate::parser::Parse;
+use std::io::Write;
 
 use crate::parser::recursive_descent::RecursiveDescentParser;
 use crate::scanner::Scanner;
@@ -43,7 +44,7 @@ impl Interpreter {
         }
         let tokens = &scanner.tokens;
         println!("Token:\n{:#?}", tokens);
-        let node = RecursiveDescentParser::new(tokens).parse();
+        let node = RecursiveDescentParser::new().parse(tokens);
         println!("AST:\n{:#?}", node);
     }
 

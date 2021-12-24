@@ -1,88 +1,32 @@
-use crate::scanner::{Token, TokenType};
-
-#[derive(Debug)]
-pub enum EqualityOperator {
-    Equal,
-    NotEqual,
-}
-
-#[derive(Debug)]
-pub enum ComparisonOperator {
-    Greater,
-    GreaterEqual,
-    Less,
-    LessEqual,
-}
-
-#[derive(Debug)]
-pub enum SumOperator {
-    Plus,
-    Minus,
-}
-
-#[derive(Debug)]
-pub enum ProductOperator {
-    Star,
-    Slash,
-}
-
-#[derive(Debug)]
-pub enum UnaryOperator {
-    Bang,
-    Minus,
-}
-
-#[derive(Debug)]
-pub enum Literal {
-    Nil,
-    True,
-    False,
-    Number(f64),
-    String(String),
-    Grouping(Box<Node>),
-}
-
-#[derive(Debug)]
-pub enum Node {
-    Expression(Box<Node>),
-    Equality(Box<Node>, EqualityOperator, Box<Node>),
-    Comparison(Box<Node>, ComparisonOperator, Box<Node>),
-    Sum(Box<Node>, SumOperator, Box<Node>),
-    Product(Box<Node>, ProductOperator, Box<Node>),
-    Unary(UnaryOperator, Box<Node>),
-    Primary(Literal),
-}
+use super::{Error, Parse};
+use crate::ast::{
+    ComparisonOperator, EqualityOperator, Literal, Node, ProductOperator, SumOperator,
+    UnaryOperator,
+};
+use crate::token::{Token, TokenType};
 
 pub struct RecursiveDescentParser<'a> {
     cursor: usize,
     tokens: &'a [Token<'a>],
-    tokens_len: usize,
 }
 
-impl<'a> RecursiveDescentParser<'a> {
-    pub fn new(tokens: &'a [Token]) -> Self {
+impl RecursiveDescentParser<'_> {
+    pub fn new() -> Self {
         RecursiveDescentParser {
             cursor: 0,
-            tokens: tokens,
-            tokens_len: tokens.len(),
+            tokens: &[],
         }
     }
 
-    pub fn parse(&mut self) -> Result<Node, String> {
-        self.cursor = 0;
-        let node = self.parse_expression()?;
-        Ok(node)
-    }
-
-    fn parse_expression(&mut self) -> Result<Node, String> {
+    fn parse_expression(&mut self) -> Result<Node, Error> {
         let equality = Node::Expression(Box::new(self.parse_equality()?));
         Ok(equality)
     }
 
-    fn parse_equality(&mut self) -> Result<Node, String> {
+    fn parse_equality(&mut self) -> Result<Node, Error> {
         let mut node = self.parse_comparison()?;
 
-        while self.cursor < self.tokens_len {
+        while self.cursor < self.tokens.len() {
             match self.tokens[self.cursor].token_type {
                 TokenType::EqualEqual => {
                     self.cursor += 1;
@@ -107,10 +51,10 @@ impl<'a> RecursiveDescentParser<'a> {
         Ok(node)
     }
 
-    fn parse_comparison(&mut self) -> Result<Node, String> {
+    fn parse_comparison(&mut self) -> Result<Node, Error> {
         let mut node = self.parse_sum()?;
 
-        while self.cursor < self.tokens_len {
+        while self.cursor < self.tokens.len() {
             match self.tokens[self.cursor].token_type {
                 TokenType::Greater => {
                     self.cursor += 1;
@@ -151,10 +95,10 @@ impl<'a> RecursiveDescentParser<'a> {
         Ok(node)
     }
 
-    fn parse_sum(&mut self) -> Result<Node, String> {
+    fn parse_sum(&mut self) -> Result<Node, Error> {
         let mut node = self.parse_product()?;
 
-        while self.cursor < self.tokens_len {
+        while self.cursor < self.tokens.len() {
             match self.tokens[self.cursor].token_type {
                 TokenType::Plus => {
                     self.cursor += 1;
@@ -179,10 +123,10 @@ impl<'a> RecursiveDescentParser<'a> {
         Ok(node)
     }
 
-    fn parse_product(&mut self) -> Result<Node, String> {
+    fn parse_product(&mut self) -> Result<Node, Error> {
         let mut node = self.parse_unary()?;
 
-        while self.cursor < self.tokens_len {
+        while self.cursor < self.tokens.len() {
             match self.tokens[self.cursor].token_type {
                 TokenType::Star => {
                     self.cursor += 1;
@@ -207,7 +151,7 @@ impl<'a> RecursiveDescentParser<'a> {
         Ok(node)
     }
 
-    fn parse_unary(&mut self) -> Result<Node, String> {
+    fn parse_unary(&mut self) -> Result<Node, Error> {
         let node = match self.tokens[self.cursor].token_type {
             TokenType::Bang => {
                 self.cursor += 1;
@@ -223,7 +167,7 @@ impl<'a> RecursiveDescentParser<'a> {
         Ok(node)
     }
 
-    fn parse_primary(&mut self) -> Result<Node, String> {
+    fn parse_primary(&mut self) -> Result<Node, Error> {
         match self.tokens[self.cursor].token_type {
             TokenType::Nil => {
                 self.cursor += 1;
@@ -242,9 +186,12 @@ impl<'a> RecursiveDescentParser<'a> {
                     self.cursor += 1;
                     Ok(Node::Primary(Literal::Number(number)))
                 } else {
-                    Err(format!(
-                        "Failed to parse number: {:?}",
-                        self.tokens[self.cursor].lexeme
+                    Err(Error::new(
+                        self.tokens[self.cursor].line_number,
+                        &format!(
+                            "Failed to parse number: {:?}",
+                            self.tokens[self.cursor].lexeme
+                        ),
                     ))
                 }
             }
@@ -256,22 +203,31 @@ impl<'a> RecursiveDescentParser<'a> {
             TokenType::LeftParen => {
                 self.cursor += 1;
                 let node = self.parse_expression()?;
-                if self.cursor < self.tokens_len
+                if self.cursor < self.tokens.len()
                     && self.tokens[self.cursor].token_type == TokenType::RightParen
                 {
                     self.cursor += 1;
                     Ok(Node::Primary(Literal::Grouping(Box::new(node))))
                 } else {
-                    Err(format!(
-                        "Expected token ')' at line {}",
+                    Err(Error::new(
                         self.tokens[self.cursor - 1].line_number,
+                        &format!("Expected token: {}", self.tokens[self.cursor - 1].lexeme),
                     ))
                 }
             }
-            _ => Err(format!(
-                "Unexpected token at line {}: {:?}",
-                self.tokens[self.cursor].line_number, self.tokens[self.cursor].lexeme,
+            _ => Err(Error::new(
+                self.tokens[self.cursor].line_number,
+                &format!("Unexpected token: {}", self.tokens[self.cursor].lexeme),
             )),
         }
+    }
+}
+
+impl<'a> Parse<'a> for RecursiveDescentParser<'a> {
+    fn parse(&mut self, tokens: &'a [Token]) -> Result<Node, Error> {
+        self.tokens = tokens;
+        self.cursor = 0;
+        let node = self.parse_expression()?;
+        Ok(node)
     }
 }
