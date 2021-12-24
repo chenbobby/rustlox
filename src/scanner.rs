@@ -1,6 +1,6 @@
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TokenType {
-    // Tokens with only 1 character
+    // Operators and Punctuation
     LeftParen,
     RightParen,
     LeftBrace,
@@ -12,8 +12,6 @@ pub enum TokenType {
     Minus,
     Star,
     Slash,
-
-    // Tokens with at least 1 character
     Bang,
     BangEqual,
     Equal,
@@ -23,12 +21,7 @@ pub enum TokenType {
     Less,
     LessEqual,
 
-    // Literals
-    Identifier,
-    String,
-    Number,
-
-    // Keywords
+    // Literals and Keywords
     Nil,
     True,
     False,
@@ -45,6 +38,9 @@ pub enum TokenType {
     This,
     Super,
     Print,
+    String,
+    Number,
+    Identifier,
 }
 
 impl TokenType {
@@ -124,7 +120,7 @@ impl<'a> Scanner<'a> {
                 '-' => self.add_token(TokenType::Minus, "-"),
                 '*' => self.add_token(TokenType::Star, "*"),
                 '/' => {
-                    if characters[self.cursor + 1] == '/' {
+                    if self.cursor + 1 < characters.len() && characters[self.cursor + 1] == '/' {
                         'line_comment: loop {
                             self.cursor += 1;
                             if self.cursor >= characters.len() || characters[self.cursor] == '\n' {
@@ -139,7 +135,7 @@ impl<'a> Scanner<'a> {
                     }
                 }
                 '!' => {
-                    if characters[self.cursor + 1] == '=' {
+                    if self.cursor + 1 < characters.len() && characters[self.cursor + 1] == '=' {
                         self.cursor += 1;
                         self.add_token(TokenType::BangEqual, "!=")
                     } else {
@@ -147,7 +143,7 @@ impl<'a> Scanner<'a> {
                     }
                 }
                 '=' => {
-                    if characters[self.cursor + 1] == '=' {
+                    if self.cursor + 1 < characters.len() && characters[self.cursor + 1] == '=' {
                         self.cursor += 1;
                         self.add_token(TokenType::EqualEqual, "==")
                     } else {
@@ -155,7 +151,7 @@ impl<'a> Scanner<'a> {
                     }
                 }
                 '>' => {
-                    if characters[self.cursor + 1] == '=' {
+                    if self.cursor + 1 < characters.len() && characters[self.cursor + 1] == '=' {
                         self.cursor += 1;
                         self.add_token(TokenType::GreaterEqual, ">=")
                     } else {
@@ -163,7 +159,7 @@ impl<'a> Scanner<'a> {
                     }
                 }
                 '<' => {
-                    if characters[self.cursor + 1] == '=' {
+                    if self.cursor + 1 < characters.len() && characters[self.cursor + 1] == '=' {
                         self.cursor += 1;
                         self.add_token(TokenType::LessEqual, "<=")
                     } else {
@@ -198,21 +194,33 @@ impl<'a> Scanner<'a> {
                         'number_literal: loop {
                             self.cursor += 1;
 
-                            if characters[self.cursor].is_digit(10) {
-                                continue 'number_literal;
-                            }
-
-                            if characters[self.cursor] == '.'
-                                && characters[self.cursor + 1].is_digit(10)
+                            if self.cursor < characters.len()
+                                && characters[self.cursor].is_digit(10)
                             {
                                 continue 'number_literal;
                             }
 
-                            self.cursor -= 1;
-                            let number_literal = &source_code[self.lexeme_start..self.cursor + 1];
-                            self.add_token(TokenType::Number, number_literal);
+                            if self.cursor < characters.len() && characters[self.cursor] == '.' {
+                                'number_decimal_loop: loop {
+                                    self.cursor += 1;
+
+                                    if self.cursor < characters.len()
+                                        && characters[self.cursor].is_digit(10)
+                                    {
+                                        continue 'number_decimal_loop;
+                                    }
+
+                                    break 'number_decimal_loop;
+                                }
+                            }
+
                             break 'number_literal;
                         }
+
+                        self.cursor -= 1;
+                        let number_literal = &source_code[self.lexeme_start..self.cursor + 1];
+                        self.add_token(TokenType::Number, number_literal);
+
                         continue 'scan;
                     }
 
@@ -220,8 +228,9 @@ impl<'a> Scanner<'a> {
                         'identifier_literal: loop {
                             self.cursor += 1;
 
-                            if characters[self.cursor].is_alphanumeric()
-                                || characters[self.cursor] == '_'
+                            if self.cursor < characters.len()
+                                && (characters[self.cursor].is_alphanumeric()
+                                    || characters[self.cursor] == '_')
                             {
                                 continue 'identifier_literal;
                             }
@@ -273,7 +282,7 @@ mod tests {
     use crate::scanner::{Scanner, Token, TokenType};
 
     #[test]
-    fn single_character_lexemes_are_scanned_successfully() {
+    fn lexemes_are_scanned_successfully() {
         struct TestCase<'a> {
             input: &'a str,
             expected_output: Vec<Token<'a>>,
@@ -293,6 +302,294 @@ mod tests {
                 expected_output: vec![Token {
                     token_type: TokenType::RightParen,
                     lexeme: ")",
+                    line_number: 1,
+                }],
+            },
+            TestCase {
+                input: "{",
+                expected_output: vec![Token {
+                    token_type: TokenType::LeftBrace,
+                    lexeme: "{",
+                    line_number: 1,
+                }],
+            },
+            TestCase {
+                input: "}",
+                expected_output: vec![Token {
+                    token_type: TokenType::RightBrace,
+                    lexeme: "}",
+                    line_number: 1,
+                }],
+            },
+            TestCase {
+                input: ";",
+                expected_output: vec![Token {
+                    token_type: TokenType::Semicolon,
+                    lexeme: ";",
+                    line_number: 1,
+                }],
+            },
+            TestCase {
+                input: ",",
+                expected_output: vec![Token {
+                    token_type: TokenType::Comma,
+                    lexeme: ",",
+                    line_number: 1,
+                }],
+            },
+            TestCase {
+                input: ".",
+                expected_output: vec![Token {
+                    token_type: TokenType::Dot,
+                    lexeme: ".",
+                    line_number: 1,
+                }],
+            },
+            TestCase {
+                input: "+",
+                expected_output: vec![Token {
+                    token_type: TokenType::Plus,
+                    lexeme: "+",
+                    line_number: 1,
+                }],
+            },
+            TestCase {
+                input: "-",
+                expected_output: vec![Token {
+                    token_type: TokenType::Minus,
+                    lexeme: "-",
+                    line_number: 1,
+                }],
+            },
+            TestCase {
+                input: "*",
+                expected_output: vec![Token {
+                    token_type: TokenType::Star,
+                    lexeme: "*",
+                    line_number: 1,
+                }],
+            },
+            TestCase {
+                input: "/",
+                expected_output: vec![Token {
+                    token_type: TokenType::Slash,
+                    lexeme: "/",
+                    line_number: 1,
+                }],
+            },
+            TestCase {
+                input: "!",
+                expected_output: vec![Token {
+                    token_type: TokenType::Bang,
+                    lexeme: "!",
+                    line_number: 1,
+                }],
+            },
+            TestCase {
+                input: "!=",
+                expected_output: vec![Token {
+                    token_type: TokenType::BangEqual,
+                    lexeme: "!=",
+                    line_number: 1,
+                }],
+            },
+            TestCase {
+                input: "=",
+                expected_output: vec![Token {
+                    token_type: TokenType::Equal,
+                    lexeme: "=",
+                    line_number: 1,
+                }],
+            },
+            TestCase {
+                input: "==",
+                expected_output: vec![Token {
+                    token_type: TokenType::EqualEqual,
+                    lexeme: "==",
+                    line_number: 1,
+                }],
+            },
+            TestCase {
+                input: ">",
+                expected_output: vec![Token {
+                    token_type: TokenType::Greater,
+                    lexeme: ">",
+                    line_number: 1,
+                }],
+            },
+            TestCase {
+                input: ">=",
+                expected_output: vec![Token {
+                    token_type: TokenType::GreaterEqual,
+                    lexeme: ">=",
+                    line_number: 1,
+                }],
+            },
+            TestCase {
+                input: "<",
+                expected_output: vec![Token {
+                    token_type: TokenType::Less,
+                    lexeme: "<",
+                    line_number: 1,
+                }],
+            },
+            TestCase {
+                input: "<=",
+                expected_output: vec![Token {
+                    token_type: TokenType::LessEqual,
+                    lexeme: "<=",
+                    line_number: 1,
+                }],
+            },
+            TestCase {
+                input: "nil",
+                expected_output: vec![Token {
+                    token_type: TokenType::Nil,
+                    lexeme: "nil",
+                    line_number: 1,
+                }],
+            },
+            TestCase {
+                input: "true",
+                expected_output: vec![Token {
+                    token_type: TokenType::True,
+                    lexeme: "true",
+                    line_number: 1,
+                }],
+            },
+            TestCase {
+                input: "false",
+                expected_output: vec![Token {
+                    token_type: TokenType::False,
+                    lexeme: "false",
+                    line_number: 1,
+                }],
+            },
+            TestCase {
+                input: "and",
+                expected_output: vec![Token {
+                    token_type: TokenType::And,
+                    lexeme: "and",
+                    line_number: 1,
+                }],
+            },
+            TestCase {
+                input: "or",
+                expected_output: vec![Token {
+                    token_type: TokenType::Or,
+                    lexeme: "or",
+                    line_number: 1,
+                }],
+            },
+            TestCase {
+                input: "if",
+                expected_output: vec![Token {
+                    token_type: TokenType::If,
+                    lexeme: "if",
+                    line_number: 1,
+                }],
+            },
+            TestCase {
+                input: "else",
+                expected_output: vec![Token {
+                    token_type: TokenType::Else,
+                    lexeme: "else",
+                    line_number: 1,
+                }],
+            },
+            TestCase {
+                input: "for",
+                expected_output: vec![Token {
+                    token_type: TokenType::For,
+                    lexeme: "for",
+                    line_number: 1,
+                }],
+            },
+            TestCase {
+                input: "while",
+                expected_output: vec![Token {
+                    token_type: TokenType::While,
+                    lexeme: "while",
+                    line_number: 1,
+                }],
+            },
+            TestCase {
+                input: "var",
+                expected_output: vec![Token {
+                    token_type: TokenType::Var,
+                    lexeme: "var",
+                    line_number: 1,
+                }],
+            },
+            TestCase {
+                input: "fun",
+                expected_output: vec![Token {
+                    token_type: TokenType::Fun,
+                    lexeme: "fun",
+                    line_number: 1,
+                }],
+            },
+            TestCase {
+                input: "return",
+                expected_output: vec![Token {
+                    token_type: TokenType::Return,
+                    lexeme: "return",
+                    line_number: 1,
+                }],
+            },
+            TestCase {
+                input: "class",
+                expected_output: vec![Token {
+                    token_type: TokenType::Class,
+                    lexeme: "class",
+                    line_number: 1,
+                }],
+            },
+            TestCase {
+                input: "this",
+                expected_output: vec![Token {
+                    token_type: TokenType::This,
+                    lexeme: "this",
+                    line_number: 1,
+                }],
+            },
+            TestCase {
+                input: "super",
+                expected_output: vec![Token {
+                    token_type: TokenType::Super,
+                    lexeme: "super",
+                    line_number: 1,
+                }],
+            },
+            TestCase {
+                input: "print",
+                expected_output: vec![Token {
+                    token_type: TokenType::Print,
+                    lexeme: "print",
+                    line_number: 1,
+                }],
+            },
+            TestCase {
+                input: "\"sushi\"",
+                expected_output: vec![Token {
+                    token_type: TokenType::String,
+                    lexeme: "sushi",
+                    line_number: 1,
+                }],
+            },
+            TestCase {
+                input: "123.456",
+                expected_output: vec![Token {
+                    token_type: TokenType::Number,
+                    lexeme: "123.456",
+                    line_number: 1,
+                }],
+            },
+            TestCase {
+                input: "my_variable",
+                expected_output: vec![Token {
+                    token_type: TokenType::Identifier,
+                    lexeme: "my_variable",
                     line_number: 1,
                 }],
             },
