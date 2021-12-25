@@ -21,3 +21,28 @@ impl Error {
         }
     }
 }
+
+// TODO: Create a macro that will produce something like the following:
+// test_parser!(Parser::new())
+//
+//
+// #[cfg(test)]
+// mod tests {
+//     use crate::ast::{
+//         ComparisonOperator, EqualityOperator, Literal, Node, ProductOperator, SumOperator,
+//         UnaryOperator,
+//     };
+//     use crate::parser::Parse;
+//     use crate::token::{Token, TokenType};
+
+//     struct TestCase<'a> {
+//         input: &'a [Token<'a>],
+//         expected_output: Node,
+//     }
+
+//     #[test]
+//     fn it_works() {
+//         let output = Parser::new();
+//         assert_eq!(2 + 2, 4);
+//     }
+// }
