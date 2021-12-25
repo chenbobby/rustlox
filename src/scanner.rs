@@ -207,314 +207,160 @@ mod tests {
         let test_cases = vec![
             TestCase {
                 input: "(",
-                expected_output: vec![Token {
-                    token_type: TokenType::LeftParen,
-                    lexeme: "(",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::LeftParen, "(", 1)],
             },
             TestCase {
                 input: ")",
-                expected_output: vec![Token {
-                    token_type: TokenType::RightParen,
-                    lexeme: ")",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::RightParen, ")", 1)],
             },
             TestCase {
                 input: "{",
-                expected_output: vec![Token {
-                    token_type: TokenType::LeftBrace,
-                    lexeme: "{",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::LeftBrace, "{", 1)],
             },
             TestCase {
                 input: "}",
-                expected_output: vec![Token {
-                    token_type: TokenType::RightBrace,
-                    lexeme: "}",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::RightBrace, "}", 1)],
             },
             TestCase {
                 input: ";",
-                expected_output: vec![Token {
-                    token_type: TokenType::Semicolon,
-                    lexeme: ";",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::Semicolon, ";", 1)],
             },
             TestCase {
                 input: ",",
-                expected_output: vec![Token {
-                    token_type: TokenType::Comma,
-                    lexeme: ",",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::Comma, ",", 1)],
             },
             TestCase {
                 input: ".",
-                expected_output: vec![Token {
-                    token_type: TokenType::Dot,
-                    lexeme: ".",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::Dot, ".", 1)],
             },
             TestCase {
                 input: "+",
-                expected_output: vec![Token {
-                    token_type: TokenType::Plus,
-                    lexeme: "+",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::Plus, "+", 1)],
             },
             TestCase {
                 input: "-",
-                expected_output: vec![Token {
-                    token_type: TokenType::Minus,
-                    lexeme: "-",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::Minus, "-", 1)],
             },
             TestCase {
                 input: "*",
-                expected_output: vec![Token {
-                    token_type: TokenType::Star,
-                    lexeme: "*",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::Star, "*", 1)],
             },
             TestCase {
                 input: "/",
-                expected_output: vec![Token {
-                    token_type: TokenType::Slash,
-                    lexeme: "/",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::Slash, "/", 1)],
             },
             TestCase {
                 input: "!",
-                expected_output: vec![Token {
-                    token_type: TokenType::Bang,
-                    lexeme: "!",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::Bang, "!", 1)],
             },
             TestCase {
                 input: "!=",
-                expected_output: vec![Token {
-                    token_type: TokenType::BangEqual,
-                    lexeme: "!=",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::BangEqual, "!=", 1)],
             },
             TestCase {
                 input: "=",
-                expected_output: vec![Token {
-                    token_type: TokenType::Equal,
-                    lexeme: "=",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::Equal, "=", 1)],
             },
             TestCase {
                 input: "==",
-                expected_output: vec![Token {
-                    token_type: TokenType::EqualEqual,
-                    lexeme: "==",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::EqualEqual, "==", 1)],
             },
             TestCase {
                 input: ">",
-                expected_output: vec![Token {
-                    token_type: TokenType::Greater,
-                    lexeme: ">",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::Greater, ">", 1)],
             },
             TestCase {
                 input: ">=",
-                expected_output: vec![Token {
-                    token_type: TokenType::GreaterEqual,
-                    lexeme: ">=",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::GreaterEqual, ">=", 1)],
             },
             TestCase {
                 input: "<",
-                expected_output: vec![Token {
-                    token_type: TokenType::Less,
-                    lexeme: "<",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::Less, "<", 1)],
             },
             TestCase {
                 input: "<=",
-                expected_output: vec![Token {
-                    token_type: TokenType::LessEqual,
-                    lexeme: "<=",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::LessEqual, "<=", 1)],
             },
             TestCase {
                 input: "nil",
-                expected_output: vec![Token {
-                    token_type: TokenType::Nil,
-                    lexeme: "nil",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::Nil, "nil", 1)],
             },
             TestCase {
                 input: "true",
-                expected_output: vec![Token {
-                    token_type: TokenType::True,
-                    lexeme: "true",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::True, "true", 1)],
             },
             TestCase {
                 input: "false",
-                expected_output: vec![Token {
-                    token_type: TokenType::False,
-                    lexeme: "false",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::False, "false", 1)],
             },
             TestCase {
                 input: "and",
-                expected_output: vec![Token {
-                    token_type: TokenType::And,
-                    lexeme: "and",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::And, "and", 1)],
             },
             TestCase {
                 input: "or",
-                expected_output: vec![Token {
-                    token_type: TokenType::Or,
-                    lexeme: "or",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::Or, "or", 1)],
             },
             TestCase {
                 input: "if",
-                expected_output: vec![Token {
-                    token_type: TokenType::If,
-                    lexeme: "if",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::If, "if", 1)],
             },
             TestCase {
                 input: "else",
-                expected_output: vec![Token {
-                    token_type: TokenType::Else,
-                    lexeme: "else",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::Else, "else", 1)],
             },
             TestCase {
                 input: "for",
-                expected_output: vec![Token {
-                    token_type: TokenType::For,
-                    lexeme: "for",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::For, "for", 1)],
             },
             TestCase {
                 input: "while",
-                expected_output: vec![Token {
-                    token_type: TokenType::While,
-                    lexeme: "while",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::While, "while", 1)],
             },
             TestCase {
                 input: "var",
-                expected_output: vec![Token {
-                    token_type: TokenType::Var,
-                    lexeme: "var",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::Var, "var", 1)],
             },
             TestCase {
                 input: "fun",
-                expected_output: vec![Token {
-                    token_type: TokenType::Fun,
-                    lexeme: "fun",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::Fun, "fun", 1)],
             },
             TestCase {
                 input: "return",
-                expected_output: vec![Token {
-                    token_type: TokenType::Return,
-                    lexeme: "return",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::Return, "return", 1)],
             },
             TestCase {
                 input: "class",
-                expected_output: vec![Token {
-                    token_type: TokenType::Class,
-                    lexeme: "class",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::Class, "class", 1)],
             },
             TestCase {
                 input: "this",
-                expected_output: vec![Token {
-                    token_type: TokenType::This,
-                    lexeme: "this",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::This, "this", 1)],
             },
             TestCase {
                 input: "super",
-                expected_output: vec![Token {
-                    token_type: TokenType::Super,
-                    lexeme: "super",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::Super, "super", 1)],
             },
             TestCase {
                 input: "print",
-                expected_output: vec![Token {
-                    token_type: TokenType::Print,
-                    lexeme: "print",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::Print, "print", 1)],
             },
             TestCase {
                 input: "\"sushi\"",
-                expected_output: vec![Token {
-                    token_type: TokenType::String,
-                    lexeme: "sushi",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::String, "sushi", 1)],
             },
             TestCase {
                 input: "123.456",
-                expected_output: vec![Token {
-                    token_type: TokenType::Number,
-                    lexeme: "123.456",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::Number, "123.456", 1)],
             },
             TestCase {
                 input: "my_variable",
-                expected_output: vec![Token {
-                    token_type: TokenType::Identifier,
-                    lexeme: "my_variable",
-                    line_number: 1,
-                }],
+                expected_output: vec![Token::new(TokenType::Identifier, "my_variable", 1)],
             },
         ];
 
         for test_case in test_cases {
-            let mut scanner = Scanner::new();
-            let output = scanner.scan(test_case.input).unwrap();
-
+            let output = Scanner::new().scan(test_case.input).unwrap();
             assert_eq!(output, test_case.expected_output);
         }
     }

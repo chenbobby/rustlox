@@ -207,11 +207,11 @@ impl RecursiveDescentParser<'_> {
                     && self.tokens[self.cursor].token_type == TokenType::RightParen
                 {
                     self.cursor += 1;
-                    Ok(Node::Primary(Literal::Grouping(Box::new(node))))
+                    Ok(node)
                 } else {
                     Err(Error::new(
                         self.tokens[self.cursor - 1].line_number,
-                        &format!("Expected token: {}", self.tokens[self.cursor - 1].lexeme),
+                        &format!("Unexpected token: {}", self.tokens[self.cursor - 1].lexeme),
                     ))
                 }
             }
@@ -229,5 +229,92 @@ impl<'a> Parse<'a> for RecursiveDescentParser<'a> {
         self.cursor = 0;
         let node = self.parse_expression()?;
         Ok(node)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::ast::{
+        ComparisonOperator, EqualityOperator, Literal, Node, ProductOperator, SumOperator,
+        UnaryOperator,
+    };
+    use crate::parser::Parse;
+    use crate::token::{Token, TokenType};
+
+    use super::RecursiveDescentParser;
+
+    struct TestCase<'a> {
+        input: &'a [Token<'a>],
+        expected_output: Node,
+    }
+
+    #[test]
+    fn can_parse_comma_expressions() {
+        assert_eq!(2 + 2, 4);
+    }
+
+    #[test]
+    fn comma_expressions_are_left_associative() {
+        assert_eq!(2 + 2, 4);
+    }
+
+    #[test]
+    fn can_parse_keywords() {
+        let test_cases = [
+            TestCase {
+                input: &[Token::new(TokenType::Nil, "nil", 1)],
+                expected_output: Node::Expression(Box::new(Node::Primary(Literal::Nil))),
+            },
+            TestCase {
+                input: &[Token::new(TokenType::True, "true", 1)],
+                expected_output: Node::Expression(Box::new(Node::Primary(Literal::True))),
+            },
+            TestCase {
+                input: &[Token::new(TokenType::False, "false", 1)],
+                expected_output: Node::Expression(Box::new(Node::Primary(Literal::False))),
+            },
+        ];
+
+        for test_case in test_cases {
+            let output = RecursiveDescentParser::new()
+                .parse(test_case.input)
+                .unwrap();
+            assert_eq!(output, test_case.expected_output);
+        }
+    }
+
+    #[test]
+    fn can_parse_string_literal() {
+        let input = &[Token::new(TokenType::String, "I am a string!", 1)];
+        let expected_output = Node::Expression(Box::new(Node::Primary(Literal::String(
+            String::from("I am a string!"),
+        ))));
+        let output = RecursiveDescentParser::new().parse(input).unwrap();
+
+        assert_eq!(output, expected_output);
+    }
+
+    #[test]
+    fn can_parse_number_literal() {
+        let input = &[Token::new(TokenType::Number, "123.456", 1)];
+        let expected_output = Node::Expression(Box::new(Node::Primary(Literal::Number(123.456))));
+        let output = RecursiveDescentParser::new().parse(input).unwrap();
+
+        assert_eq!(output, expected_output);
+    }
+
+    #[test]
+    fn can_parse_parenthetical_expression() {
+        let input = &[
+            Token::new(TokenType::LeftParen, "(", 1),
+            Token::new(TokenType::Nil, "nil", 1),
+            Token::new(TokenType::RightParen, ")", 1),
+        ];
+        let expected_output = Node::Expression(Box::new(Node::Expression(Box::new(
+            Node::Primary(Literal::Nil),
+        ))));
+        let output = RecursiveDescentParser::new().parse(input).unwrap();
+
+        assert_eq!(output, expected_output);
     }
 }

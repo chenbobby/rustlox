@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Node {
     Expression(Box<Node>),
     Equality(Box<Node>, EqualityOperator, Box<Node>),
@@ -9,13 +9,13 @@ pub enum Node {
     Primary(Literal),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum EqualityOperator {
     Equal,
     NotEqual,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ComparisonOperator {
     Greater,
     GreaterEqual,
@@ -23,30 +23,29 @@ pub enum ComparisonOperator {
     LessEqual,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum SumOperator {
     Plus,
     Minus,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ProductOperator {
     Star,
     Slash,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum UnaryOperator {
     Bang,
     Minus,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Literal {
     Nil,
     True,
     False,
-    Number(f64),
     String(String),
-    Grouping(Box<Node>),
+    Number(f64),
 }

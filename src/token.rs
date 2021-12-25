@@ -78,7 +78,7 @@ impl<'a> Token<'a> {
     pub fn new(token_type: TokenType, lexeme: &'a str, line_number: i32) -> Token {
         Token {
             token_type,
-            lexeme: lexeme,
+            lexeme,
             line_number,
         }
     }
