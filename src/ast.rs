@@ -1,10 +1,11 @@
 #[derive(Debug, PartialEq)]
 pub enum Node {
     Expression(Box<Node>),
-    Equality(Box<Node>, EqualityOperator, Box<Node>),
-    Comparison(Box<Node>, ComparisonOperator, Box<Node>),
-    Sum(Box<Node>, SumOperator, Box<Node>),
-    Product(Box<Node>, ProductOperator, Box<Node>),
+    Series(Box<Node>, Box<Node>),
+    Equality(EqualityOperator, Box<Node>, Box<Node>),
+    Comparison(ComparisonOperator, Box<Node>, Box<Node>),
+    Sum(SumOperator, Box<Node>, Box<Node>),
+    Product(ProductOperator, Box<Node>, Box<Node>),
     Unary(UnaryOperator, Box<Node>),
     Primary(Literal),
 }

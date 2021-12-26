@@ -19,8 +19,24 @@ impl RecursiveDescentParser<'_> {
     }
 
     fn parse_expression(&mut self) -> Result<Node, Error> {
-        let equality = Node::Expression(Box::new(self.parse_equality()?));
-        Ok(equality)
+        let node = Node::Expression(Box::new(self.parse_series()?));
+        Ok(node)
+    }
+
+    fn parse_series(&mut self) -> Result<Node, Error> {
+        let mut node = self.parse_equality()?;
+
+        while self.cursor < self.tokens.len() {
+            match self.tokens[self.cursor].token_type {
+                TokenType::Comma => {
+                    self.cursor += 1;
+                    node = Node::Series(Box::new(node), Box::new(self.parse_equality()?));
+                }
+                _ => break,
+            }
+        }
+
+        Ok(node)
     }
 
     fn parse_equality(&mut self) -> Result<Node, Error> {
@@ -31,16 +47,16 @@ impl RecursiveDescentParser<'_> {
                 TokenType::EqualEqual => {
                     self.cursor += 1;
                     node = Node::Equality(
-                        Box::new(node),
                         EqualityOperator::Equal,
+                        Box::new(node),
                         Box::new(self.parse_comparison()?),
                     );
                 }
                 TokenType::BangEqual => {
                     self.cursor += 1;
                     node = Node::Equality(
-                        Box::new(node),
                         EqualityOperator::NotEqual,
+                        Box::new(node),
                         Box::new(self.parse_comparison()?),
                     );
                 }
@@ -59,32 +75,32 @@ impl RecursiveDescentParser<'_> {
                 TokenType::Greater => {
                     self.cursor += 1;
                     node = Node::Comparison(
-                        Box::new(node),
                         ComparisonOperator::Greater,
+                        Box::new(node),
                         Box::new(self.parse_sum()?),
                     )
                 }
                 TokenType::GreaterEqual => {
                     self.cursor += 1;
                     node = Node::Comparison(
-                        Box::new(node),
                         ComparisonOperator::GreaterEqual,
+                        Box::new(node),
                         Box::new(self.parse_sum()?),
                     )
                 }
                 TokenType::Less => {
                     self.cursor += 1;
                     node = Node::Comparison(
-                        Box::new(node),
                         ComparisonOperator::Less,
+                        Box::new(node),
                         Box::new(self.parse_sum()?),
                     )
                 }
                 TokenType::LessEqual => {
                     self.cursor += 1;
                     node = Node::Comparison(
-                        Box::new(node),
                         ComparisonOperator::LessEqual,
+                        Box::new(node),
                         Box::new(self.parse_sum()?),
                     )
                 }
@@ -103,16 +119,16 @@ impl RecursiveDescentParser<'_> {
                 TokenType::Plus => {
                     self.cursor += 1;
                     node = Node::Sum(
-                        Box::new(node),
                         SumOperator::Plus,
+                        Box::new(node),
                         Box::new(self.parse_product()?),
                     )
                 }
                 TokenType::Minus => {
                     self.cursor += 1;
                     node = Node::Sum(
-                        Box::new(node),
                         SumOperator::Minus,
+                        Box::new(node),
                         Box::new(self.parse_product()?),
                     )
                 }
@@ -131,16 +147,16 @@ impl RecursiveDescentParser<'_> {
                 TokenType::Star => {
                     self.cursor += 1;
                     node = Node::Product(
-                        Box::new(node),
                         ProductOperator::Star,
+                        Box::new(node),
                         Box::new(self.parse_unary()?),
                     )
                 }
-                TokenType::Minus => {
+                TokenType::Slash => {
                     self.cursor += 1;
                     node = Node::Product(
-                        Box::new(node),
                         ProductOperator::Slash,
+                        Box::new(node),
                         Box::new(self.parse_unary()?),
                     )
                 }
@@ -227,8 +243,16 @@ impl<'a> Parse<'a> for RecursiveDescentParser<'a> {
     fn parse(&mut self, tokens: &'a [Token]) -> Result<Node, Error> {
         self.tokens = tokens;
         self.cursor = 0;
+
         let node = self.parse_expression()?;
-        Ok(node)
+        if self.cursor < self.tokens.len() {
+            Err(Error::new(
+                self.tokens[self.cursor].line_number,
+                &format!("Unexpected token bruh: {}", self.tokens[self.cursor].lexeme),
+            ))
+        } else {
+            Ok(node)
+        }
     }
 }
 
@@ -249,13 +273,518 @@ mod tests {
     }
 
     #[test]
-    fn can_parse_comma_expressions() {
-        assert_eq!(2 + 2, 4);
+    fn can_parse_series() {
+        let input = &[
+            Token::new(TokenType::Number, "1", 1),
+            Token::new(TokenType::Comma, ",", 1),
+            Token::new(TokenType::Number, "2", 1),
+        ];
+        let expected_output = Node::Expression(Box::new(Node::Series(
+            Box::new(Node::Primary(Literal::Number(1.0))),
+            Box::new(Node::Primary(Literal::Number(2.0))),
+        )));
+        let output = RecursiveDescentParser::new().parse(input).unwrap();
+
+        assert_eq!(output, expected_output);
     }
 
     #[test]
-    fn comma_expressions_are_left_associative() {
-        assert_eq!(2 + 2, 4);
+    fn series_is_left_associative() {
+        let input = &[
+            Token::new(TokenType::Number, "1", 1),
+            Token::new(TokenType::Comma, ",", 1),
+            Token::new(TokenType::Number, "2", 1),
+            Token::new(TokenType::Comma, ",", 1),
+            Token::new(TokenType::Number, "3", 1),
+        ];
+        let expected_output = Node::Expression(Box::new(Node::Series(
+            Box::new(Node::Series(
+                Box::new(Node::Primary(Literal::Number(1.0))),
+                Box::new(Node::Primary(Literal::Number(2.0))),
+            )),
+            Box::new(Node::Primary(Literal::Number(3.0))),
+        )));
+
+        let output = RecursiveDescentParser::new().parse(input).unwrap();
+        assert_eq!(output, expected_output);
+    }
+
+    #[test]
+    fn can_parse_equality() {
+        let test_cases = [
+            TestCase {
+                input: &[
+                    Token::new(TokenType::Number, "1", 1),
+                    Token::new(TokenType::EqualEqual, "==", 1),
+                    Token::new(TokenType::Number, "2", 1),
+                ],
+                expected_output: Node::Expression(Box::new(Node::Equality(
+                    EqualityOperator::Equal,
+                    Box::new(Node::Primary(Literal::Number(1.0))),
+                    Box::new(Node::Primary(Literal::Number(2.0))),
+                ))),
+            },
+            TestCase {
+                input: &[
+                    Token::new(TokenType::Number, "1", 1),
+                    Token::new(TokenType::BangEqual, "!=", 1),
+                    Token::new(TokenType::Number, "2", 1),
+                ],
+                expected_output: Node::Expression(Box::new(Node::Equality(
+                    EqualityOperator::NotEqual,
+                    Box::new(Node::Primary(Literal::Number(1.0))),
+                    Box::new(Node::Primary(Literal::Number(2.0))),
+                ))),
+            },
+        ];
+
+        for test_case in test_cases {
+            let output = RecursiveDescentParser::new()
+                .parse(test_case.input)
+                .unwrap();
+            assert_eq!(output, test_case.expected_output);
+        }
+    }
+
+    #[test]
+    fn equality_is_left_associative() {
+        let test_cases = [
+            TestCase {
+                input: &[
+                    Token::new(TokenType::Number, "1", 1),
+                    Token::new(TokenType::EqualEqual, "==", 1),
+                    Token::new(TokenType::Number, "2", 1),
+                    Token::new(TokenType::EqualEqual, "==", 1),
+                    Token::new(TokenType::Number, "3", 1),
+                ],
+                expected_output: Node::Expression(Box::new(Node::Equality(
+                    EqualityOperator::Equal,
+                    Box::new(Node::Equality(
+                        EqualityOperator::Equal,
+                        Box::new(Node::Primary(Literal::Number(1.0))),
+                        Box::new(Node::Primary(Literal::Number(2.0))),
+                    )),
+                    Box::new(Node::Primary(Literal::Number(3.0))),
+                ))),
+            },
+            TestCase {
+                input: &[
+                    Token::new(TokenType::Number, "1", 1),
+                    Token::new(TokenType::BangEqual, "!=", 1),
+                    Token::new(TokenType::Number, "2", 1),
+                    Token::new(TokenType::BangEqual, "!=", 1),
+                    Token::new(TokenType::Number, "3", 1),
+                ],
+                expected_output: Node::Expression(Box::new(Node::Equality(
+                    EqualityOperator::NotEqual,
+                    Box::new(Node::Equality(
+                        EqualityOperator::NotEqual,
+                        Box::new(Node::Primary(Literal::Number(1.0))),
+                        Box::new(Node::Primary(Literal::Number(2.0))),
+                    )),
+                    Box::new(Node::Primary(Literal::Number(3.0))),
+                ))),
+            },
+        ];
+
+        for test_case in test_cases {
+            let output = RecursiveDescentParser::new()
+                .parse(test_case.input)
+                .unwrap();
+            assert_eq!(output, test_case.expected_output);
+        }
+    }
+
+    #[test]
+    fn can_parse_comparison() {
+        let test_cases = [
+            TestCase {
+                input: &[
+                    Token::new(TokenType::Number, "1", 1),
+                    Token::new(TokenType::Greater, ">", 1),
+                    Token::new(TokenType::Number, "2", 1),
+                ],
+                expected_output: Node::Expression(Box::new(Node::Comparison(
+                    ComparisonOperator::Greater,
+                    Box::new(Node::Primary(Literal::Number(1.0))),
+                    Box::new(Node::Primary(Literal::Number(2.0))),
+                ))),
+            },
+            TestCase {
+                input: &[
+                    Token::new(TokenType::Number, "1", 1),
+                    Token::new(TokenType::GreaterEqual, ">=", 1),
+                    Token::new(TokenType::Number, "2", 1),
+                ],
+                expected_output: Node::Expression(Box::new(Node::Comparison(
+                    ComparisonOperator::GreaterEqual,
+                    Box::new(Node::Primary(Literal::Number(1.0))),
+                    Box::new(Node::Primary(Literal::Number(2.0))),
+                ))),
+            },
+            TestCase {
+                input: &[
+                    Token::new(TokenType::Number, "1", 1),
+                    Token::new(TokenType::Less, "<", 1),
+                    Token::new(TokenType::Number, "2", 1),
+                ],
+                expected_output: Node::Expression(Box::new(Node::Comparison(
+                    ComparisonOperator::Less,
+                    Box::new(Node::Primary(Literal::Number(1.0))),
+                    Box::new(Node::Primary(Literal::Number(2.0))),
+                ))),
+            },
+            TestCase {
+                input: &[
+                    Token::new(TokenType::Number, "1", 1),
+                    Token::new(TokenType::LessEqual, "<=", 1),
+                    Token::new(TokenType::Number, "2", 1),
+                ],
+                expected_output: Node::Expression(Box::new(Node::Comparison(
+                    ComparisonOperator::LessEqual,
+                    Box::new(Node::Primary(Literal::Number(1.0))),
+                    Box::new(Node::Primary(Literal::Number(2.0))),
+                ))),
+            },
+        ];
+
+        for test_case in test_cases {
+            let output = RecursiveDescentParser::new()
+                .parse(test_case.input)
+                .unwrap();
+            assert_eq!(output, test_case.expected_output);
+        }
+    }
+
+    #[test]
+    fn comparison_is_left_associative() {
+        let test_cases = [
+            TestCase {
+                input: &[
+                    Token::new(TokenType::Number, "1", 1),
+                    Token::new(TokenType::Greater, ">", 1),
+                    Token::new(TokenType::Number, "2", 1),
+                    Token::new(TokenType::Greater, ">", 1),
+                    Token::new(TokenType::Number, "3", 1),
+                ],
+                expected_output: Node::Expression(Box::new(Node::Comparison(
+                    ComparisonOperator::Greater,
+                    Box::new(Node::Comparison(
+                        ComparisonOperator::Greater,
+                        Box::new(Node::Primary(Literal::Number(1.0))),
+                        Box::new(Node::Primary(Literal::Number(2.0))),
+                    )),
+                    Box::new(Node::Primary(Literal::Number(3.0))),
+                ))),
+            },
+            TestCase {
+                input: &[
+                    Token::new(TokenType::Number, "1", 1),
+                    Token::new(TokenType::GreaterEqual, ">=", 1),
+                    Token::new(TokenType::Number, "2", 1),
+                    Token::new(TokenType::GreaterEqual, ">=", 1),
+                    Token::new(TokenType::Number, "3", 1),
+                ],
+                expected_output: Node::Expression(Box::new(Node::Comparison(
+                    ComparisonOperator::GreaterEqual,
+                    Box::new(Node::Comparison(
+                        ComparisonOperator::GreaterEqual,
+                        Box::new(Node::Primary(Literal::Number(1.0))),
+                        Box::new(Node::Primary(Literal::Number(2.0))),
+                    )),
+                    Box::new(Node::Primary(Literal::Number(3.0))),
+                ))),
+            },
+            TestCase {
+                input: &[
+                    Token::new(TokenType::Number, "1", 1),
+                    Token::new(TokenType::Less, "<", 1),
+                    Token::new(TokenType::Number, "2", 1),
+                    Token::new(TokenType::Less, "<", 1),
+                    Token::new(TokenType::Number, "3", 1),
+                ],
+                expected_output: Node::Expression(Box::new(Node::Comparison(
+                    ComparisonOperator::Less,
+                    Box::new(Node::Comparison(
+                        ComparisonOperator::Less,
+                        Box::new(Node::Primary(Literal::Number(1.0))),
+                        Box::new(Node::Primary(Literal::Number(2.0))),
+                    )),
+                    Box::new(Node::Primary(Literal::Number(3.0))),
+                ))),
+            },
+            TestCase {
+                input: &[
+                    Token::new(TokenType::Number, "1", 1),
+                    Token::new(TokenType::LessEqual, "<=", 1),
+                    Token::new(TokenType::Number, "2", 1),
+                    Token::new(TokenType::LessEqual, "<=", 1),
+                    Token::new(TokenType::Number, "3", 1),
+                ],
+                expected_output: Node::Expression(Box::new(Node::Comparison(
+                    ComparisonOperator::LessEqual,
+                    Box::new(Node::Comparison(
+                        ComparisonOperator::LessEqual,
+                        Box::new(Node::Primary(Literal::Number(1.0))),
+                        Box::new(Node::Primary(Literal::Number(2.0))),
+                    )),
+                    Box::new(Node::Primary(Literal::Number(3.0))),
+                ))),
+            },
+        ];
+
+        for test_case in test_cases {
+            let output = RecursiveDescentParser::new()
+                .parse(test_case.input)
+                .unwrap();
+            assert_eq!(output, test_case.expected_output);
+        }
+    }
+
+    #[test]
+    fn can_parse_sum() {
+        let test_cases = [
+            TestCase {
+                input: &[
+                    Token::new(TokenType::Number, "1", 1),
+                    Token::new(TokenType::Plus, "+", 1),
+                    Token::new(TokenType::Number, "2", 1),
+                ],
+                expected_output: Node::Expression(Box::new(Node::Sum(
+                    SumOperator::Plus,
+                    Box::new(Node::Primary(Literal::Number(1.0))),
+                    Box::new(Node::Primary(Literal::Number(2.0))),
+                ))),
+            },
+            TestCase {
+                input: &[
+                    Token::new(TokenType::Number, "1", 1),
+                    Token::new(TokenType::Minus, "-", 1),
+                    Token::new(TokenType::Number, "2", 1),
+                ],
+                expected_output: Node::Expression(Box::new(Node::Sum(
+                    SumOperator::Minus,
+                    Box::new(Node::Primary(Literal::Number(1.0))),
+                    Box::new(Node::Primary(Literal::Number(2.0))),
+                ))),
+            },
+        ];
+
+        for test_case in test_cases {
+            let output = RecursiveDescentParser::new()
+                .parse(test_case.input)
+                .unwrap();
+            assert_eq!(output, test_case.expected_output);
+        }
+    }
+
+    #[test]
+    fn sum_is_left_associative() {
+        let test_cases = [
+            TestCase {
+                input: &[
+                    Token::new(TokenType::Number, "1", 1),
+                    Token::new(TokenType::Plus, "+", 1),
+                    Token::new(TokenType::Number, "2", 1),
+                    Token::new(TokenType::Plus, "+", 1),
+                    Token::new(TokenType::Number, "3", 1),
+                ],
+                expected_output: Node::Expression(Box::new(Node::Sum(
+                    SumOperator::Plus,
+                    Box::new(Node::Sum(
+                        SumOperator::Plus,
+                        Box::new(Node::Primary(Literal::Number(1.0))),
+                        Box::new(Node::Primary(Literal::Number(2.0))),
+                    )),
+                    Box::new(Node::Primary(Literal::Number(3.0))),
+                ))),
+            },
+            TestCase {
+                input: &[
+                    Token::new(TokenType::Number, "1", 1),
+                    Token::new(TokenType::Minus, "-", 1),
+                    Token::new(TokenType::Number, "2", 1),
+                    Token::new(TokenType::Minus, "-", 1),
+                    Token::new(TokenType::Number, "3", 1),
+                ],
+                expected_output: Node::Expression(Box::new(Node::Sum(
+                    SumOperator::Minus,
+                    Box::new(Node::Sum(
+                        SumOperator::Minus,
+                        Box::new(Node::Primary(Literal::Number(1.0))),
+                        Box::new(Node::Primary(Literal::Number(2.0))),
+                    )),
+                    Box::new(Node::Primary(Literal::Number(3.0))),
+                ))),
+            },
+        ];
+
+        for test_case in test_cases {
+            let output = RecursiveDescentParser::new()
+                .parse(test_case.input)
+                .unwrap();
+            assert_eq!(output, test_case.expected_output);
+        }
+    }
+
+    #[test]
+    fn product_is_left_associative() {
+        let test_cases = [
+            TestCase {
+                input: &[
+                    Token::new(TokenType::Number, "1", 1),
+                    Token::new(TokenType::Star, "*", 1),
+                    Token::new(TokenType::Number, "2", 1),
+                    Token::new(TokenType::Star, "*", 1),
+                    Token::new(TokenType::Number, "3", 1),
+                ],
+                expected_output: Node::Expression(Box::new(Node::Product(
+                    ProductOperator::Star,
+                    Box::new(Node::Product(
+                        ProductOperator::Star,
+                        Box::new(Node::Primary(Literal::Number(1.0))),
+                        Box::new(Node::Primary(Literal::Number(2.0))),
+                    )),
+                    Box::new(Node::Primary(Literal::Number(3.0))),
+                ))),
+            },
+            TestCase {
+                input: &[
+                    Token::new(TokenType::Number, "1", 1),
+                    Token::new(TokenType::Slash, "/", 1),
+                    Token::new(TokenType::Number, "2", 1),
+                    Token::new(TokenType::Slash, "/", 1),
+                    Token::new(TokenType::Number, "3", 1),
+                ],
+                expected_output: Node::Expression(Box::new(Node::Product(
+                    ProductOperator::Slash,
+                    Box::new(Node::Product(
+                        ProductOperator::Slash,
+                        Box::new(Node::Primary(Literal::Number(1.0))),
+                        Box::new(Node::Primary(Literal::Number(2.0))),
+                    )),
+                    Box::new(Node::Primary(Literal::Number(3.0))),
+                ))),
+            },
+        ];
+
+        for test_case in test_cases {
+            let output = RecursiveDescentParser::new()
+                .parse(test_case.input)
+                .unwrap();
+            assert_eq!(output, test_case.expected_output);
+        }
+    }
+
+    #[test]
+    fn can_parse_product() {
+        let test_cases = [
+            TestCase {
+                input: &[
+                    Token::new(TokenType::Number, "1", 1),
+                    Token::new(TokenType::Star, "*", 1),
+                    Token::new(TokenType::Number, "2", 1),
+                ],
+                expected_output: Node::Expression(Box::new(Node::Product(
+                    ProductOperator::Star,
+                    Box::new(Node::Primary(Literal::Number(1.0))),
+                    Box::new(Node::Primary(Literal::Number(2.0))),
+                ))),
+            },
+            TestCase {
+                input: &[
+                    Token::new(TokenType::Number, "1", 1),
+                    Token::new(TokenType::Slash, "/", 1),
+                    Token::new(TokenType::Number, "2", 1),
+                ],
+                expected_output: Node::Expression(Box::new(Node::Product(
+                    ProductOperator::Slash,
+                    Box::new(Node::Primary(Literal::Number(1.0))),
+                    Box::new(Node::Primary(Literal::Number(2.0))),
+                ))),
+            },
+        ];
+
+        for test_case in test_cases {
+            let output = RecursiveDescentParser::new()
+                .parse(test_case.input)
+                .unwrap();
+            assert_eq!(output, test_case.expected_output);
+        }
+    }
+
+    #[test]
+    fn can_parse_unary() {
+        let test_cases = [
+            TestCase {
+                input: &[
+                    Token::new(TokenType::Bang, "!", 1),
+                    Token::new(TokenType::True, "true", 1),
+                ],
+                expected_output: Node::Expression(Box::new(Node::Unary(
+                    UnaryOperator::Bang,
+                    Box::new(Node::Primary(Literal::True)),
+                ))),
+            },
+            TestCase {
+                input: &[
+                    Token::new(TokenType::Minus, "-", 1),
+                    Token::new(TokenType::Number, "123.456", 1),
+                ],
+                expected_output: Node::Expression(Box::new(Node::Unary(
+                    UnaryOperator::Minus,
+                    Box::new(Node::Primary(Literal::Number(123.456))),
+                ))),
+            },
+        ];
+
+        for test_case in test_cases {
+            let output = RecursiveDescentParser::new()
+                .parse(test_case.input)
+                .unwrap();
+            assert_eq!(output, test_case.expected_output);
+        }
+    }
+
+    #[test]
+    fn unary_is_right_associative() {
+        let test_cases = [
+            TestCase {
+                input: &[
+                    Token::new(TokenType::Bang, "!", 1),
+                    Token::new(TokenType::Bang, "!", 1),
+                    Token::new(TokenType::True, "true", 1),
+                ],
+                expected_output: Node::Expression(Box::new(Node::Unary(
+                    UnaryOperator::Bang,
+                    Box::new(Node::Unary(
+                        UnaryOperator::Bang,
+                        Box::new(Node::Primary(Literal::True)),
+                    )),
+                ))),
+            },
+            TestCase {
+                input: &[
+                    Token::new(TokenType::Minus, "-", 1),
+                    Token::new(TokenType::Minus, "-", 1),
+                    Token::new(TokenType::Number, "123.456", 1),
+                ],
+                expected_output: Node::Expression(Box::new(Node::Unary(
+                    UnaryOperator::Minus,
+                    Box::new(Node::Unary(
+                        UnaryOperator::Minus,
+                        Box::new(Node::Primary(Literal::Number(123.456))),
+                    )),
+                ))),
+            },
+        ];
+
+        for test_case in test_cases {
+            let output = RecursiveDescentParser::new()
+                .parse(test_case.input)
+                .unwrap();
+            assert_eq!(output, test_case.expected_output);
+        }
     }
 
     #[test]
